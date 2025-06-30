@@ -5,14 +5,15 @@ This is a simple and beginner-friendly Bash script that applies basic security h
 
 ## Features (for now)
 
-- Prompts for and creates a new sudo user
-- Copies SSH keys from root to the new user (if available)
-- Disables root SSH login safely
-- Reloads SSH daemon automatically
-- **Interactive firewall setup (UFW) with protocol selection**
-- Secure default rules: deny all incoming, allow outgoing, keep SSH open
-- All additional ports are applied **only after confirmation**
-- User can add more ports or cancel firewall setup safely
+- Creates a new admin user with sudo privileges
+- Copies root SSH keys to new user (if available)
+- Disables direct root SSH login
+- Interactive UFW firewall setup:
+  - Choose specific ports
+  - Select protocol (TCP/UDP/Both)
+  - Summary + confirmation before applying rules
+- Installs and configures Fail2Ban for SSH brute-force protection
+- Designed for first-run security setup on fresh servers
 
 This script is intended for **manual server preparation** where SSH access and basic Linux tools are already available.
 
@@ -22,3 +23,5 @@ This script is intended for **manual server preparation** where SSH access and b
 wget https://raw.githubusercontent.com/zer0flare/linux-hardening-basics/main/harden.sh
 chmod +x harden.sh
 sudo ./harden.sh
+
+
