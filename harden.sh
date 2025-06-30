@@ -42,7 +42,12 @@ else
 fi
 
 systemctl reload sshd
-echo "[+] Root SSH login disabled."
+echo ""
+echo "======================================="
+echo "Step 1 complete: Admin user created and root SSH login disabled."
+echo "Next up: Firewall configuration (UFW)."
+echo "======================================="
+read -p "Press Enter to continue..." _
 
 # Step 3: Set up UFW Firewall with User-Guided Rules (Dry Run Mode)
 echo "[*] Configuring UFW firewall..."
@@ -143,6 +148,50 @@ while true; do
         break
     fi
 done
+
+# Step 4: Install and Configure Fail2Ban
+echo ""
+echo "======================================="
+echo "Step 3: Installing and configuring Fail2Ban for SSH protection"
+echo "======================================="
+read -p "Press Enter to continue..."
+
+# Install Fail2Ban
+if ! command -v fail2ban-client &> /dev/null; then
+    echo "[*] Installing Fail2Ban..."
+    apt-get update && apt-get install -y fail2ban
+else
+    echo "[*] Fail2Ban already installed."
+fi
+
+# Enable and start the service
+systemctl enable fail2ban
+systemctl start fail2ban
+
+# Create a local jail config these configs can be adjusted as needed
+cat <<EOF > /etc/fail2ban/jail.local
+[DEFAULT]
+bantime = 1h
+findtime = 10m
+maxretry = 5
+
+[sshd]
+enabled = true
+port = ssh
+logpath = /var/log/auth.log
+EOF
+
+echo "[+] Fail2Ban jail.local config written."
+
+# Restart to apply new config
+systemctl restart fail2ban
+
+# Show jail status
+echo ""
+echo "[*] Fail2Ban status:"
+fail2ban-client status sshd || echo "[!] SSH jail status not found (verify logs and config)"
+
+
 
 
 
