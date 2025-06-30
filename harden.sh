@@ -1,7 +1,7 @@
 #!/bin/bash
 # Linux Security Script - Basic Edition
 # Author: Zer0Flare
-# Description: Improves newly deployed nodes/servers security.
+# Description: Improves newly deployed nodes/servers security and configuration.
 
 set -e  # Exit on any error
 
@@ -43,3 +43,106 @@ fi
 
 systemctl reload sshd
 echo "[+] Root SSH login disabled."
+
+# Step 3: Set up UFW Firewall with User-Guided Rules (Dry Run Mode)
+echo "[*] Configuring UFW firewall..."
+
+# Install UFW if missing
+if ! command -v ufw &> /dev/null; then
+    echo "[*] UFW not found. Installing..."
+    apt-get update && apt-get install -y ufw
+fi
+
+# Always allow SSH, this is applied immediately for safety
+ufw allow OpenSSH
+
+# Start clean temporary port list
+declare -a QUEUED_PORTS
+
+# Port input loop
+while true; do
+    echo ""
+    echo "You can now specify additional ports to allow through the firewall."
+    echo "Examples:"
+    echo " - Minecraft (Java Edition): 25565 TCP"
+    echo " - Pterodactyl Wings Daemon: 8080 TCP"
+    echo " - Source/CS2 Server: 27015 UDP"
+    echo " - Terraria: 7777 TCP"
+    echo ""
+
+    while true; do
+        read -p "Enter a port number to allow (or press Enter to finish): " port
+        [[ -z "$port" ]] && break
+
+        if ! [[ "$port" =~ ^[0-9]+$ ]] || (( port < 1 || port > 65535 )); then
+            echo "[!] Invalid port number. Please enter a value between 1 and 65535."
+            continue
+        fi
+
+        read -p "Specify protocol for port $port (tcp/udp/both): " proto
+        proto_lc=$(echo "$proto" | tr '[:upper:]' '[:lower:]')
+
+        case "$proto_lc" in
+            tcp)
+                QUEUED_PORTS+=("$port/tcp")
+                echo "[+] Queued TCP port $port"
+                ;;
+            udp)
+                QUEUED_PORTS+=("$port/udp")
+                echo "[+] Queued UDP port $port"
+                ;;
+            both)
+                QUEUED_PORTS+=("$port/tcp")
+                QUEUED_PORTS+=("$port/udp")
+                echo "[+] Queued BOTH TCP and UDP for port $port"
+                ;;
+            *)
+                echo "[!] Invalid protocol. Please enter 'tcp', 'udp', or 'both'."
+                continue
+                ;;
+        esac
+    done
+
+    # Show summary
+    echo ""
+    echo "[*] Summary of queued firewall rules:"
+    echo " - Default incoming policy: deny"
+    echo " - Default outgoing policy: allow"
+    echo " - SSH allowed (OpenSSH)"
+    for rule in "${QUEUED_PORTS[@]}"; do
+        echo " - Will allow: $rule"
+    done
+    echo " - All other incoming ports will be blocked by default."
+    echo ""
+    echo "Ports will only be applied after confirmation."
+
+    # Confirm or modify
+    read -p "Apply these rules now? (y = yes / a = add more / n = cancel): " confirm
+    confirm_lc=$(echo "$confirm" | tr '[:upper:]' '[:lower:]')
+
+    if [[ "$confirm_lc" == "y" || "$confirm_lc" == "yes" ]]; then
+        echo "[*] Applying firewall rules..."
+        ufw default deny incoming
+        ufw default allow outgoing
+
+        for rule in "${QUEUED_PORTS[@]}"; do
+            ufw allow "$rule"
+        done
+
+        ufw --force enable
+        echo "[+] UFW is now active with your selected rules:"
+        ufw status verbose
+        break
+
+    elif [[ "$confirm_lc" == "a" ]]; then
+        echo "[*] Returning to port selection..."
+        continue
+
+    else
+        echo "[!] Firewall setup canceled. No additional ports were applied."
+        break
+    fi
+done
+
+
+
